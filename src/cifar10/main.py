@@ -3,13 +3,20 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import cPickle as pickle
+import pickle as pickle
 import shutil
 import sys
 import time
+sys.path.insert(0,'.')
 
 import numpy as np
 import tensorflow as tf
+
+## disable deprecation message
+if (sys.version[:5] != '3.5.6'):
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+# from tensorflow.python.util import deprecation
+# deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 from src import utils
 from src.utils import Logger
@@ -62,6 +69,7 @@ DEFINE_float("child_lr_min", None, "for lr schedule")
 DEFINE_string("child_skip_pattern", None, "Must be ['dense', None]")
 DEFINE_string("child_fixed_arc", None, "")
 DEFINE_boolean("child_use_aux_heads", False, "Should we use an aux head")
+DEFINE_boolean("controller_multi_objective", False, "Should we multi objective")
 DEFINE_boolean("child_sync_replicas", False, "To sync or not to sync.")
 DEFINE_boolean("child_lr_cosine", False, "Use cosine lr schedule")
 
@@ -166,7 +174,9 @@ def get_ops(images, labels):
       optim_algo="adam",
       sync_replicas=FLAGS.controller_sync_replicas,
       num_aggregate=FLAGS.controller_num_aggregate,
-      num_replicas=FLAGS.controller_num_replicas)
+      num_replicas=FLAGS.controller_num_replicas,
+      multi_objective=FLAGS.controller_multi_objective
+    )
 
     child_model.connect_controller(controller_model)
     controller_model.build_trainer(child_model)
@@ -183,6 +193,8 @@ def get_ops(images, labels):
       "entropy": controller_model.sample_entropy,
       "sample_arc": controller_model.sample_arc,
       "skip_rate": controller_model.skip_rate,
+      "latency_sum": controller_model.latency_sum,
+      "reward": controller_model.reward,
     }
   else:
     assert not FLAGS.controller_training, (
@@ -307,9 +319,11 @@ def train():
 
               print("Here are 10 architectures")
               for _ in range(10):
-                arc, acc = sess.run([
+                arc, acc, lat, red = sess.run([
                   controller_ops["sample_arc"],
                   controller_ops["valid_acc"],
+                  controller_ops["latency_sum"],
+                  controller_ops["reward"]
                 ])
                 if FLAGS.search_for == "micro":
                   normal_arc, reduce_arc = arc
@@ -325,6 +339,8 @@ def train():
                     print(np.reshape(arc[start: end], [-1]))
                     start = end
                 print("val_acc={:<6.4f}".format(acc))
+                print("latency_sum={:<6.4f}".format(lat))
+                print("reward={:<6.4f}".format(red))
                 print("-" * 80)
 
             print("Epoch {}: Eval".format(epoch))

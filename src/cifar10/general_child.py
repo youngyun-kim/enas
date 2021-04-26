@@ -232,8 +232,9 @@ class GeneralChild(Model):
       if is_training:
         x = tf.nn.dropout(x, self.keep_prob)
       with tf.variable_scope("fc"):
-        if self.data_format == "NWHC":
-          inp_c = x.get_shape()[3].value
+        if self.data_format == "NHWC": # typo error
+          #inp_c = x.get_shape()[3].value
+          inp_c = x.get_shape()[1].value
         elif self.data_format == "NCHW":
           inp_c = x.get_shape()[1].value
         else:

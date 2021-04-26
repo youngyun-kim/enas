@@ -41,6 +41,7 @@ class MicroController(Controller):
                sync_replicas=False,
                num_aggregate=None,
                num_replicas=None,
+               multi_objective=False,
                name="controller",
                **kwargs):
 
@@ -73,6 +74,7 @@ class MicroController(Controller):
     self.sync_replicas = sync_replicas
     self.num_aggregate = num_aggregate
     self.num_replicas = num_replicas
+    self.multi_objective = multi_objective
     self.name = name
 
     self._create_params()
@@ -81,6 +83,9 @@ class MicroController(Controller):
     self.sample_arc = (arc_seq_1, arc_seq_2)
     self.sample_entropy = entropy_1 + entropy_2
     self.sample_log_prob = log_prob_1 + log_prob_2
+    # add arg
+    self.normal_arc = arc_seq_1
+    self.reduce_arc = arc_seq_2
 
   def _create_params(self):
     initializer = tf.random_uniform_initializer(minval=-0.1, maxval=0.1)
@@ -228,11 +233,85 @@ class MicroController(Controller):
 
     return arc_seq, entropy, log_prob, last_c, last_h
 
+  
   def build_trainer(self, child_model):
     child_model.build_valid_rl()
+    lookup = tf.Variable([9., 25., 9., 3., 1.])
+
+    '''
+    lookup index
+    0 : 3x3 sep conv
+    1 : 5x5 sep conv
+    2 : avg pooling
+    3 : max pooling
+    4 : identity
+    '''
+    stack_convs = 2.0
+
+    lookup_conv = tf.Variable([[46.16 * stack_convs, 55.05 * stack_convs, 6.99, 6.51, 0.0], # 8x8x144
+                               [35.15 * stack_convs, 44.12 * stack_convs, 12.52, 7.97, 0.0], # 16x16x72
+                               [38.12 * stack_convs, 48.75 * stack_convs, 12.98, 12.69, 0.0]]) # 32x32x36
+
+    lookup_reduction = tf.Variable([[90.07 * stack_convs, 107.51 * stack_convs, 12.52, 12.18, 0.0], # 16x16x144
+                                    [90.56 * stack_convs, 115.23 * stack_convs, 21.96, 21.51, 0.0]]) # 32x32x72
+
+    lookup_conv = tf.math.multiply(lookup_conv, tf.Variable(self.num_branches * 1.0))
+    #lookup_conv = tf.math.multiply(lookup_conv, tf.Variable(stack_convs * self.num_branches))
+    #lookup_reduction = tf.math.multiply(lookup_reduction, tf.Variable(stack_convs))
+
     self.valid_acc = (tf.to_float(child_model.valid_shuffle_acc) /
                       tf.to_float(child_model.batch_size))
-    self.reward = self.valid_acc
+
+    #res = tf.reshape(self.sample_arc[0][1], [1])
+    #for idx in range(1, self.num_cells):
+    #  res = tf.concat([res, tf.reshape(self.sample_arc[0][idx * 2 + 1], [1])], axis=0)
+    #operators_cell = tf.convert_to_tensor(res, dtype=tf.int32)
+    
+    operators_cell = tf.gather(self.normal_arc, indices=[1,3,5,7,9,11,13,15,17,19])
+
+    latency_cell_sum = 0
+    for idx in range(lookup_conv.shape[0]):
+      latency_cell = tf.gather(lookup_conv[idx], operators_cell)
+      latency_cell_sum += tf.reduce_sum(latency_cell)
+
+    # latency_cell = tf.gather(lookup, operators_cell)
+    # latency_cell = tf.reduce_sum(latency_cell)
+
+    #res2 = tf.reshape(self.sample_arc[1][1], [1])
+    #for idx in range(1, self.num_cells):
+    #  res2 = tf.concat([res2, tf.reshape(self.sample_arc[1][idx * 2 + 1], [1])], axis=0)
+    #operators_redu = tf.convert_to_tensor(res2, dtype=tf.int32)
+    
+    operators_redu = tf.gather(self.reduce_arc, indices=[1,3,5,7,9,11,13,15,17,19])
+
+    latency_redu_sum = 0
+    for idx in range(lookup_reduction.shape[0]):
+      latency_redu = tf.gather(lookup_reduction[idx], operators_redu)
+      latency_redu_sum += tf.reduce_sum(latency_redu)
+
+    # latency_redu = tf.gather(lookup, operators_redu)
+    # latency_redu = tf.reduce_sum(latency_redu)
+    # latency_sum = tf.math.add(latency_cell, latency_redu)
+    latency_sum = tf.math.add(latency_cell_sum, latency_redu_sum)
+    latency_sum = latency_sum * 1.7 # add external ops
+
+    alpha = tf.to_float(0.)
+    beta = tf.to_float(-1.)
+    threshold = tf.to_float(5000.) # 5000us
+    latency_val = tf.cond(
+      tf.math.greater(threshold, latency_sum), 
+      lambda: tf.math.pow(latency_sum, alpha), 
+      lambda: tf.math.pow(latency_sum, beta)
+    )
+    self.latency_sum = latency_sum
+
+    print("DEBUG", "valid_acc:", self.valid_acc, " latency_val:", latency_val)  
+
+    if self.multi_objective == False:
+      self.reward = self.valid_acc
+
+    else:
+      self.reward = self.valid_acc * latency_val # objective function
 
     if self.entropy_weight is not None:
       self.reward += self.entropy_weight * self.sample_entropy

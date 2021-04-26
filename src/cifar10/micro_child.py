@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 from __future__ import division
-from __future__ import print_function
 
 import os
 import sys
@@ -250,7 +249,7 @@ class MicroChild(Model):
         x = tf.nn.conv2d(
           images, w, [1, 1, 1, 1], "SAME", data_format=self.data_format)
         x = batch_norm(x, is_training, data_format=self.data_format)
-      if self.data_format == "NHCW":
+      if self.data_format == "NHWC":
         split_axis = 3
       elif self.data_format == "NCHW":
         split_axis = 1
@@ -281,7 +280,7 @@ class MicroChild(Model):
               x = self._fixed_layer(
                 layer_id, layers, self.reduce_arc, out_filters, 2, is_training,
                 normal_or_reduction_cell="reduction")
-          print("Layer {0:>2d}: {1}".format(layer_id, x))
+          ("Layer {0:>2d}: {1}".format(layer_id, x))
           layers = [layers[-1], x]
 
         # auxiliary heads
@@ -289,7 +288,7 @@ class MicroChild(Model):
         if (self.use_aux_heads and
             layer_id in self.aux_head_indices
             and is_training):
-          print("Using aux_head at layer {0}".format(layer_id))
+          ("Using aux_head at layer {0}".format(layer_id))
           with tf.variable_scope("aux_head"):
             aux_logits = tf.nn.relu(x)
             aux_logits = tf.layers.average_pooling2d(
@@ -326,14 +325,15 @@ class MicroChild(Model):
             var for var in tf.trainable_variables() if (
               var.name.startswith(self.name) and "aux_head" in var.name)]
           self.num_aux_vars = count_model_params(aux_head_variables)
-          print("Aux head uses {0} params".format(self.num_aux_vars))
+          ("Aux head uses {0} params".format(self.num_aux_vars))
 
       x = tf.nn.relu(x)
       x = global_avg_pool(x, data_format=self.data_format)
       if is_training and self.keep_prob is not None and self.keep_prob < 1.0:
         x = tf.nn.dropout(x, self.keep_prob)
       with tf.variable_scope("fc"):
-        inp_c = self._get_C(x)
+        #inp_c = self._get_C(x) # TODO : build error
+        inp_c = x.get_shape()[1].value
         w = create_weight("w", [inp_c, 10])
         x = tf.matmul(x, w)
     return x
