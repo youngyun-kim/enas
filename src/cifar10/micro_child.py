@@ -53,6 +53,7 @@ class MicroChild(Model):
                num_replicas=None,
                data_format="NHWC",
                name="child",
+               stack_convs=2
                **kwargs
               ):
     """
@@ -98,6 +99,7 @@ class MicroChild(Model):
     self.num_layers = num_layers
     self.num_cells = num_cells
     self.fixed_arc = fixed_arc
+    self.stack_convs = stack_convs # add for stack_convs
 
     self.global_step = tf.Variable(
       0, dtype=tf.int32, trainable=False, name="global_step")
@@ -280,7 +282,7 @@ class MicroChild(Model):
               x = self._fixed_layer(
                 layer_id, layers, self.reduce_arc, out_filters, 2, is_training,
                 normal_or_reduction_cell="reduction")
-          ("Layer {0:>2d}: {1}".format(layer_id, x))
+          print("Layer {0:>2d}: {1}".format(layer_id, x))
           layers = [layers[-1], x]
 
         # auxiliary heads
@@ -288,7 +290,7 @@ class MicroChild(Model):
         if (self.use_aux_heads and
             layer_id in self.aux_head_indices
             and is_training):
-          ("Using aux_head at layer {0}".format(layer_id))
+          print("Using aux_head at layer {0}".format(layer_id))
           with tf.variable_scope("aux_head"):
             aux_logits = tf.nn.relu(x)
             aux_logits = tf.layers.average_pooling2d(
@@ -325,14 +327,14 @@ class MicroChild(Model):
             var for var in tf.trainable_variables() if (
               var.name.startswith(self.name) and "aux_head" in var.name)]
           self.num_aux_vars = count_model_params(aux_head_variables)
-          ("Aux head uses {0} params".format(self.num_aux_vars))
+          print("Aux head uses {0} params".format(self.num_aux_vars))
 
       x = tf.nn.relu(x)
       x = global_avg_pool(x, data_format=self.data_format)
       if is_training and self.keep_prob is not None and self.keep_prob < 1.0:
         x = tf.nn.dropout(x, self.keep_prob)
       with tf.variable_scope("fc"):
-        #inp_c = self._get_C(x) # TODO : build error
+        #inp_c = self._get_C(x) # FIXED_ME : build error
         inp_c = x.get_shape()[1].value
         w = create_weight("w", [inp_c, 10])
         x = tf.matmul(x, w)
@@ -435,7 +437,7 @@ class MicroChild(Model):
         with tf.variable_scope("x_conv"):
           if x_op in [0, 1]:
             f_size = f_sizes[x_op]
-            x = self._fixed_conv(x, f_size, out_filters, x_stride, is_training)
+            x = self._fixed_conv(x, f_size, out_filters, x_stride, is_training, self.stack_convs)
           elif x_op in [2, 3]:
             inp_c = self._get_C(x)
             if x_op == 2:
@@ -475,7 +477,7 @@ class MicroChild(Model):
         with tf.variable_scope("y_conv"):
           if y_op in [0, 1]:
             f_size = f_sizes[y_op]
-            y = self._fixed_conv(y, f_size, out_filters, y_stride, is_training)
+            y = self._fixed_conv(y, f_size, out_filters, y_stride, is_training, self.stack_convs)
           elif y_op in [2, 3]:
             inp_c = self._get_C(y)
             if y_op == 2:

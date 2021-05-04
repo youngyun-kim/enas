@@ -69,7 +69,6 @@ DEFINE_float("child_lr_min", None, "for lr schedule")
 DEFINE_string("child_skip_pattern", None, "Must be ['dense', None]")
 DEFINE_string("child_fixed_arc", None, "")
 DEFINE_boolean("child_use_aux_heads", False, "Should we use an aux head")
-DEFINE_boolean("controller_multi_objective", False, "Should we multi objective")
 DEFINE_boolean("child_sync_replicas", False, "To sync or not to sync.")
 DEFINE_boolean("child_lr_cosine", False, "Use cosine lr schedule")
 
@@ -97,6 +96,9 @@ DEFINE_boolean("controller_use_critic", False, "")
 
 DEFINE_integer("log_every", 50, "How many steps to log")
 DEFINE_integer("eval_every_epochs", 1, "How many epochs to eval")
+# ADD Flags
+DEFINE_boolean("controller_multi_objective", False, "Should we multi objective") # add for multi_obj
+DEFINE_integer("child_stack_convs", 2, "number of separable convs in child network") #add for stack_convs
 
 def get_ops(images, labels):
   """
@@ -146,6 +148,7 @@ def get_ops(images, labels):
     sync_replicas=FLAGS.child_sync_replicas,
     num_aggregate=FLAGS.child_num_aggregate,
     num_replicas=FLAGS.child_num_replicas,
+    stack_convs=FLAGS.child_stack_convs # add for stack_convs
   )
 
   if FLAGS.child_fixed_arc is None:
@@ -175,7 +178,8 @@ def get_ops(images, labels):
       sync_replicas=FLAGS.controller_sync_replicas,
       num_aggregate=FLAGS.controller_num_aggregate,
       num_replicas=FLAGS.controller_num_replicas,
-      multi_objective=FLAGS.controller_multi_objective
+      multi_objective=FLAGS.controller_multi_objective, # add for multi_obj
+      stack_convs=FLAGS.child_stack_convs # add for stack_convs
     )
 
     child_model.connect_controller(controller_model)

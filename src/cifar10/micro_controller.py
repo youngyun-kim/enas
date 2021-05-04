@@ -20,6 +20,7 @@ class MicroController(Controller):
                search_for="both",
                search_whole_channels=False,
                num_branches=6,
+               num_layers=5,
                num_cells=6,
                lstm_size=32,
                lstm_num_layers=2,
@@ -42,6 +43,7 @@ class MicroController(Controller):
                num_aggregate=None,
                num_replicas=None,
                multi_objective=False,
+               stack_convs=2,
                name="controller",
                **kwargs):
 
@@ -51,6 +53,7 @@ class MicroController(Controller):
     self.search_for = search_for
     self.search_whole_channels = search_whole_channels
     self.num_cells = num_cells
+    self.num_layers = num_layers
     self.num_branches = num_branches
 
     self.lstm_size = lstm_size
@@ -75,6 +78,7 @@ class MicroController(Controller):
     self.num_aggregate = num_aggregate
     self.num_replicas = num_replicas
     self.multi_objective = multi_objective
+    self.stack_convs = stack_convs
     self.name = name
 
     self._create_params()
@@ -233,10 +237,9 @@ class MicroController(Controller):
 
     return arc_seq, entropy, log_prob, last_c, last_h
 
-  
   def build_trainer(self, child_model):
     child_model.build_valid_rl()
-    lookup = tf.Variable([9., 25., 9., 3., 1.])
+    #lookup = tf.Variable([9., 25., 9., 3., 1.])
 
     '''
     lookup index
@@ -246,7 +249,8 @@ class MicroController(Controller):
     3 : max pooling
     4 : identity
     '''
-    stack_convs = 2.0
+    stack_convs = self.stack_convs
+    pool_distance = self.num_layers // 3
 
     lookup_conv = tf.Variable([[46.16 * stack_convs, 55.05 * stack_convs, 6.99, 6.51, 0.0], # 8x8x144
                                [35.15 * stack_convs, 44.12 * stack_convs, 12.52, 7.97, 0.0], # 16x16x72
@@ -255,7 +259,7 @@ class MicroController(Controller):
     lookup_reduction = tf.Variable([[90.07 * stack_convs, 107.51 * stack_convs, 12.52, 12.18, 0.0], # 16x16x144
                                     [90.56 * stack_convs, 115.23 * stack_convs, 21.96, 21.51, 0.0]]) # 32x32x72
 
-    lookup_conv = tf.math.multiply(lookup_conv, tf.Variable(self.num_branches * 1.0))
+    lookup_conv = tf.math.multiply(lookup_conv, tf.Variable(pool_distance * 1.0))
     #lookup_conv = tf.math.multiply(lookup_conv, tf.Variable(stack_convs * self.num_branches))
     #lookup_reduction = tf.math.multiply(lookup_reduction, tf.Variable(stack_convs))
 
@@ -266,8 +270,16 @@ class MicroController(Controller):
     #for idx in range(1, self.num_cells):
     #  res = tf.concat([res, tf.reshape(self.sample_arc[0][idx * 2 + 1], [1])], axis=0)
     #operators_cell = tf.convert_to_tensor(res, dtype=tf.int32)
+
+    odd_idx = []
+    for x in range(1, self.num_cells * 4):
+        if x % 2 == 0:
+            pass
+        else:
+            odd_idx.append(x)
     
-    operators_cell = tf.gather(self.normal_arc, indices=[1,3,5,7,9,11,13,15,17,19])
+    #operators_cell = tf.gather(self.normal_arc, indices=[1,3,5,7,9,11,13,15,17,19])
+    operators_cell = tf.gather(self.normal_arc, indices=odd_idx)
 
     latency_cell_sum = 0
     for idx in range(lookup_conv.shape[0]):
@@ -282,7 +294,8 @@ class MicroController(Controller):
     #  res2 = tf.concat([res2, tf.reshape(self.sample_arc[1][idx * 2 + 1], [1])], axis=0)
     #operators_redu = tf.convert_to_tensor(res2, dtype=tf.int32)
     
-    operators_redu = tf.gather(self.reduce_arc, indices=[1,3,5,7,9,11,13,15,17,19])
+    #operators_redu = tf.gather(self.reduce_arc, indices=[1,3,5,7,9,11,13,15,17,19])
+    operators_redu = tf.gather(self.reduce_arc, indices=odd_idx)
 
     latency_redu_sum = 0
     for idx in range(lookup_reduction.shape[0]):
