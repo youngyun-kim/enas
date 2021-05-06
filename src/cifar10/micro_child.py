@@ -53,7 +53,7 @@ class MicroChild(Model):
                num_replicas=None,
                data_format="NHWC",
                name="child",
-               stack_convs=2
+               stack_convs=2,
                **kwargs
               ):
     """
