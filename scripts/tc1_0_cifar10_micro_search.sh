@@ -1,5 +1,5 @@
 #!/bin/bash
-# name : tc1_cifar10_micro_search.sh
+# name : tc1_0_cifar10_micro_search.sh
 # description : 
 # copy cifar10_micro_search.sh
 # build to compare with actual fixed_arc on cifar10_micro_final.sh
@@ -11,7 +11,7 @@ CUDA_VISIBLE_DEVICES=6 python src/cifar10/main.py \
   --search_for="micro" \
   --reset_output_dir \
   --data_path="data/cifar-10-batches-py" \
-  --output_dir="outputs_tc1_cifar10_micro_search" \
+  --output_dir="outputs_tc1_0_cifar10_micro_search" \
   --batch_size=160 \
   --num_epochs=150 \
   --log_every=50 \

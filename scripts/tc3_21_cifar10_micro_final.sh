@@ -1,27 +1,29 @@
 #!/bin/bash
-# name : tc2_cifar10_micro_final.sh
+# name : tc3_21_cifar10_micro_final.sh
 # description : 
-# copy cifar10_micro_final.sh
-# num_epochs changes from 630 to 150, and then build to measure enas accuracy
+# child_stack_convs changes from 2 to 1
+# training controller : val_acc=0.8063, num_epochs=146/150
+# find final child network
+# child_num_layers changes from 15 to 3
 
 export PYTHONPATH="$(pwd)"
 
-fixed_arc="0 2 0 0 0 4 0 1 0 4 1 1 1 0 0 1 0 2 1 1"
-fixed_arc="$fixed_arc 1 0 1 0 0 3 0 2 1 1 3 1 1 0 0 4 0 3 1 1"
+fixed_arc="1 4 1 1 1 1 1 3 0 3 1 4 0 1 0 0 4 4 1 1"
+fixed_arc="$fixed_arc 1 0 0 2 0 4 1 0 1 3 1 3 0 3 1 1 0 1 0 3"
 
-CUDA_VISIBLE_DEVICES=7 python src/cifar10/main.py \
+CUDA_VISIBLE_DEVICES=4 python src/cifar10/main.py \
   --data_format="NHWC" \
   --search_for="micro" \
   --reset_output_dir \
   --data_path="data/cifar-10-batches-py" \
-  --output_dir="outputs_tc2_cifar10_micro_final" \
+  --output_dir="outputs_tc3_21_cifar10_micro_final" \
   --batch_size=144 \
   --num_epochs=150 \
   --log_every=50 \
   --eval_every_epochs=1 \
   --child_fixed_arc="${fixed_arc}" \
   --child_use_aux_heads \
-  --child_num_layers=15 \
+  --child_num_layers=3 \
   --child_out_filters=36 \
   --child_num_branches=5 \
   --child_num_cells=5 \
@@ -43,5 +45,6 @@ CUDA_VISIBLE_DEVICES=7 python src/cifar10/main.py \
   --controller_lr=0.001 \
   --controller_tanh_constant=1.50 \
   --controller_op_tanh_reduce=2.5 \
+  --child_stack_convs=1 \						 
   "$@"
 

@@ -1,7 +1,7 @@
 #!/bin/bash
-# name : tc3_cifar10_micro_search.sh
+# name : tc2_0_cifar10_micro_search.sh
 # description : 
-# copy tc1_cifar10_micro_search.sh
+# copy tc1_0_cifar10_micro_search.sh
 # child_stack_convs changes from 2 to 1
 
 export PYTHONPATH="$(pwd)"
@@ -11,7 +11,7 @@ CUDA_VISIBLE_DEVICES=5 python src/cifar10/main.py \
   --search_for="micro" \
   --reset_output_dir \
   --data_path="data/cifar-10-batches-py" \
-  --output_dir="outputs_tc3_cifar10_micro_search" \
+  --output_dir="outputs_tc2_0_cifar10_micro_search" \
   --batch_size=160 \
   --num_epochs=150 \
   --log_every=50 \
