@@ -97,7 +97,8 @@ DEFINE_boolean("controller_use_critic", False, "")
 DEFINE_integer("log_every", 50, "How many steps to log")
 DEFINE_integer("eval_every_epochs", 1, "How many epochs to eval")
 # ADD Flags
-DEFINE_boolean("controller_multi_objective", False, "Should we multi objective") # add for multi_obj
+DEFINE_string("controller_multi_objective", None, "Must be ['cpu', 'gpu', None]") # add for multi_obj
+DEFINE_integer("controller_runtime_threshold", 100000, "runtime threshold") # add for multi_obj_thr
 DEFINE_integer("child_stack_convs", 2, "number of separable convs in child network") #add for stack_convs
 
 def get_ops(images, labels):
@@ -179,6 +180,7 @@ def get_ops(images, labels):
       num_aggregate=FLAGS.controller_num_aggregate,
       num_replicas=FLAGS.controller_num_replicas,
       multi_objective=FLAGS.controller_multi_objective, # add for multi_obj
+      runtime_threshold=FLAGS.controller_runtime_threshold, # add for multi_obj_thr
       stack_convs=FLAGS.child_stack_convs # add for stack_convs
     )
 
@@ -197,7 +199,8 @@ def get_ops(images, labels):
       "entropy": controller_model.sample_entropy,
       "sample_arc": controller_model.sample_arc,
       "skip_rate": controller_model.skip_rate,
-      "latency_sum": controller_model.latency_sum,
+      "cpu_latency_sum": controller_model.cpu_latency_sum,
+      "gpu_latency_sum": controller_model.gpu_latency_sum,
       "reward": controller_model.reward,
     }
   else:
@@ -323,10 +326,11 @@ def train():
 
               print("Here are 10 architectures")
               for _ in range(10):
-                arc, acc, lat, red = sess.run([
+                arc, acc, cpu_lat, gpu_lat, red = sess.run([
                   controller_ops["sample_arc"],
                   controller_ops["valid_acc"],
-                  controller_ops["latency_sum"],
+                  controller_ops["cpu_latency_sum"],
+                  controller_ops["gpu_latency_sum"],
                   controller_ops["reward"]
                 ])
                 if FLAGS.search_for == "micro":
@@ -343,7 +347,8 @@ def train():
                     print(np.reshape(arc[start: end], [-1]))
                     start = end
                 print("val_acc={:<6.4f}".format(acc))
-                print("latency_sum={:<6.4f}".format(lat))
+                print("cpu_latency_sum={:<6.4f}".format(cpu_lat))
+                print("gpu_latency_sum={:<6.4f}".format(gpu_lat))
                 print("reward={:<6.4f}".format(red))
                 print("-" * 80)
 

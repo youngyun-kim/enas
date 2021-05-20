@@ -42,7 +42,8 @@ class MicroController(Controller):
                sync_replicas=False,
                num_aggregate=None,
                num_replicas=None,
-               multi_objective=False,
+               multi_objective=None,
+               runtime_threshold=100000,
                stack_convs=2,
                name="controller",
                **kwargs):
@@ -78,6 +79,7 @@ class MicroController(Controller):
     self.num_aggregate = num_aggregate
     self.num_replicas = num_replicas
     self.multi_objective = multi_objective
+    self.runtime_threshold = runtime_threshold
     self.stack_convs = stack_convs
     self.name = name
 
@@ -239,7 +241,9 @@ class MicroController(Controller):
 
   def build_trainer(self, child_model):
     child_model.build_valid_rl()
-    #lookup = tf.Variable([9., 25., 9., 3., 1.])
+
+    self.valid_acc = (tf.to_float(child_model.valid_shuffle_acc) /
+                      tf.to_float(child_model.batch_size))
 
     '''
     lookup index
@@ -252,82 +256,95 @@ class MicroController(Controller):
     stack_convs = self.stack_convs
     pool_distance = self.num_layers // 3
 
-    lookup_conv = tf.Variable([[46.16 * stack_convs, 55.05 * stack_convs, 6.99, 6.51, 0.0], # 8x8x144
-                               [35.15 * stack_convs, 44.12 * stack_convs, 12.52, 7.97, 0.0], # 16x16x72
-                               [38.12 * stack_convs, 48.75 * stack_convs, 12.98, 12.69, 0.0]]) # 32x32x36
+    #CPU Runtime
+    cpu_lookup_conv = tf.Variable([[191.60 * stack_convs, 254.85 * stack_convs,  80.50, 105.46, 0.0], # 8x8x144 #layer_12_15
+                                   [253.50 * stack_convs, 410.33 * stack_convs, 106.30, 140.60, 0.0], # 16x16x72 #layer_6_10
+                                   [669.05 * stack_convs, 992.45 * stack_convs, 191.70, 249.00, 0.0]]) # 32x32x36 #layer_0_4
 
-    lookup_reduction = tf.Variable([[90.07 * stack_convs, 107.51 * stack_convs, 12.52, 12.18, 0.0], # 16x16x144
-                                    [90.56 * stack_convs, 115.23 * stack_convs, 21.96, 21.51, 0.0]]) # 32x32x72
+    cpu_lookup_reduction = tf.Variable([[452.63 * stack_convs, 506.83 * stack_convs,  55.00,  48.50, 0.0], # 16x16x144 #layer_11
+                                        [764.75 * stack_convs, 495.33 * stack_convs, 134.00, 154.50, 0.0]]) # 32x32x72 #layer_5
 
-    lookup_conv = tf.math.multiply(lookup_conv, tf.Variable(pool_distance * 1.0))
-    #lookup_conv = tf.math.multiply(lookup_conv, tf.Variable(stack_convs * self.num_branches))
-    #lookup_reduction = tf.math.multiply(lookup_reduction, tf.Variable(stack_convs))
+    #GPU Runtime
+    gpu_lookup_conv = tf.Variable([[48.85 * stack_convs, 57.53 * stack_convs, 6.80, 6.80, 0.0], # 8x8x144
+                                   [37.70 * stack_convs, 46.85 * stack_convs, 8.30, 8.40, 0.0], # 16x16x72
+                                   [42.15 * stack_convs, 52.13 * stack_convs, 13.10, 13.60, 0.0]]) # 32x32x36
 
-    self.valid_acc = (tf.to_float(child_model.valid_shuffle_acc) /
-                      tf.to_float(child_model.batch_size))
+    gpu_lookup_reduction = tf.Variable([[60.50 * stack_convs, 65.50 * stack_convs, 7.00, 6.50, 0.0], # 16x16x144
+                                        [90.56 * stack_convs, 57.33 * stack_convs, 12.00, 10.50, 0.0]]) # 32x32x72
 
-    #res = tf.reshape(self.sample_arc[0][1], [1])
-    #for idx in range(1, self.num_cells):
-    #  res = tf.concat([res, tf.reshape(self.sample_arc[0][idx * 2 + 1], [1])], axis=0)
-    #operators_cell = tf.convert_to_tensor(res, dtype=tf.int32)
 
+    cpu_lookup_conv = tf.math.multiply(cpu_lookup_conv, tf.Variable(pool_distance * 1.0))
+    gpu_lookup_conv = tf.math.multiply(gpu_lookup_conv, tf.Variable(pool_distance * 1.0))
+
+    #make op list
     odd_idx = []
-    for x in range(1, self.num_cells * 4):
-        if x % 2 == 0:
-            pass
-        else:
+    for x in range(self.num_cells * 4):
+        if x % 2 != 0:
             odd_idx.append(x)
-    
-    #operators_cell = tf.gather(self.normal_arc, indices=[1,3,5,7,9,11,13,15,17,19])
-    operators_cell = tf.gather(self.normal_arc, indices=odd_idx)
 
-    latency_cell_sum = 0
-    for idx in range(lookup_conv.shape[0]):
-      latency_cell = tf.gather(lookup_conv[idx], operators_cell)
-      latency_cell_sum += tf.reduce_sum(latency_cell)
+    #calc runtime of convolution cell
+    operators_convolution_cell = tf.gather(self.normal_arc, indices=odd_idx)
 
-    # latency_cell = tf.gather(lookup, operators_cell)
-    # latency_cell = tf.reduce_sum(latency_cell)
+    cpu_latency_cell_sum = 0
+    for idx in range(cpu_lookup_conv.shape[0]):
+      cpu_latency_cell = tf.gather(cpu_lookup_conv[idx], operators_convolution_cell)
+      cpu_latency_cell_sum += tf.reduce_sum(cpu_latency_cell)
 
-    #res2 = tf.reshape(self.sample_arc[1][1], [1])
-    #for idx in range(1, self.num_cells):
-    #  res2 = tf.concat([res2, tf.reshape(self.sample_arc[1][idx * 2 + 1], [1])], axis=0)
-    #operators_redu = tf.convert_to_tensor(res2, dtype=tf.int32)
-    
-    #operators_redu = tf.gather(self.reduce_arc, indices=[1,3,5,7,9,11,13,15,17,19])
-    operators_redu = tf.gather(self.reduce_arc, indices=odd_idx)
+    gpu_latency_cell_sum = 0
+    for idx in range(gpu_lookup_conv.shape[0]):
+      gpu_latency_cell = tf.gather(gpu_lookup_conv[idx], operators_convolution_cell)
+      gpu_latency_cell_sum += tf.reduce_sum(gpu_latency_cell)
 
-    latency_redu_sum = 0
-    for idx in range(lookup_reduction.shape[0]):
-      latency_redu = tf.gather(lookup_reduction[idx], operators_redu)
-      latency_redu_sum += tf.reduce_sum(latency_redu)
+    #calc runtime of reduction cell
+    operators_reduction_cell = tf.gather(self.reduce_arc, indices=odd_idx)
 
-    # latency_redu = tf.gather(lookup, operators_redu)
-    # latency_redu = tf.reduce_sum(latency_redu)
-    # latency_sum = tf.math.add(latency_cell, latency_redu)
-    latency_sum = tf.math.add(latency_cell_sum, latency_redu_sum)
-    latency_sum = latency_sum * 1.7 # add external ops
+    cpu_latency_redu_sum = 0
+    for idx in range(cpu_lookup_reduction.shape[0]):
+      cpu_latency_redu = tf.gather(cpu_lookup_reduction[idx], operators_reduction_cell)
+      cpu_latency_redu_sum += tf.reduce_sum(cpu_latency_redu)
 
-    alpha = tf.to_float(0.)
-    beta = tf.to_float(-1.)
-    threshold = tf.to_float(5000.) # 5000us
-    latency_val = tf.cond(
-      tf.math.greater(threshold, latency_sum), 
-      lambda: tf.math.pow(latency_sum, alpha), 
-      lambda: tf.math.pow(latency_sum, beta)
-    )
-    self.latency_sum = latency_sum
+    gpu_latency_redu_sum = 0
+    for idx in range(gpu_lookup_reduction.shape[0]):
+      gpu_latency_redu = tf.gather(gpu_lookup_reduction[idx], operators_reduction_cell)
+      gpu_latency_redu_sum += tf.reduce_sum(gpu_latency_redu)
 
-    print("DEBUG", "valid_acc:", self.valid_acc, " latency_val:", latency_val)  
+    #calc total runtime
+    cpu_latency_sum = tf.math.add(cpu_latency_cell_sum, cpu_latency_redu_sum)
+    cpu_latency_sum = tf.math.multiply(cpu_latency_sum, 1.5) # add external ops (x1.46)
 
-    if self.multi_objective == False:
-      self.reward = self.valid_acc
+    gpu_latency_sum = tf.math.add(gpu_latency_cell_sum, gpu_latency_redu_sum)
+    gpu_latency_sum = tf.math.multiply(gpu_latency_sum, 1.8) # add external ops (x1.73)
 
+    self.cpu_latency_sum = cpu_latency_sum
+    self.gpu_latency_sum = gpu_latency_sum
+
+    alpha = tf.cast(0. , tf.float32)
+    beta = tf.cast(-1. , tf.float32)
+
+    #multi_objective = [cpu, gpu, None]
+    if self.multi_objective == "cpu":
+        threshold = tf.cast(self.runtime_threshold , tf.float32) # 100000us
+        latency_sum = cpu_latency_sum #CPU
+        latency_val = tf.cond(
+                tf.math.greater(threshold, latency_sum),
+                lambda: tf.math.pow(latency_sum, alpha),
+                lambda: tf.math.pow(latency_sum, beta)
+        )
+        self.reward = self.valid_acc * latency_val # objective function
+    elif self.multi_objective == "gpu":
+        threshold = tf.cast(self.runtime_threshold , tf.float32) # 100000us
+        latency_sum = gpu_latency_sum #GPU
+        latency_val = tf.cond(
+                tf.math.greater(threshold, latency_sum),
+                lambda: tf.math.pow(latency_sum, alpha),
+                lambda: tf.math.pow(latency_sum, beta)
+        )
+        self.reward = self.valid_acc * latency_val # objective function
     else:
-      self.reward = self.valid_acc * latency_val # objective function
+        self.reward = self.valid_acc
 
     if self.entropy_weight is not None:
-      self.reward += self.entropy_weight * self.sample_entropy
+        self.reward += self.entropy_weight * self.sample_entropy
 
     self.sample_log_prob = tf.reduce_sum(self.sample_log_prob)
     self.baseline = tf.Variable(0.0, dtype=tf.float32, trainable=False)
