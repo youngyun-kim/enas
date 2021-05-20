@@ -98,7 +98,9 @@ DEFINE_integer("log_every", 50, "How many steps to log")
 DEFINE_integer("eval_every_epochs", 1, "How many epochs to eval")
 # ADD Flags
 DEFINE_string("controller_multi_objective", None, "Must be ['cpu', 'gpu', None]") # add for multi_obj
-DEFINE_integer("controller_runtime_threshold", 100000, "runtime threshold") # add for multi_obj_thr
+DEFINE_integer("multi_obj_runtime_threshold", 100000, "runtime threshold") # add for multi_obj_thr
+DEFINE_float("multi_obj_factor_alpha", 0.0, "alpha for reward function") # add for alpha
+DEFINE_float("multi_obj_factor_beta", -1.0, "beta for reward function") # add for beta
 DEFINE_integer("child_stack_convs", 2, "number of separable convs in child network") #add for stack_convs
 
 def get_ops(images, labels):
@@ -180,7 +182,9 @@ def get_ops(images, labels):
       num_aggregate=FLAGS.controller_num_aggregate,
       num_replicas=FLAGS.controller_num_replicas,
       multi_objective=FLAGS.controller_multi_objective, # add for multi_obj
-      runtime_threshold=FLAGS.controller_runtime_threshold, # add for multi_obj_thr
+      runtime_threshold=FLAGS.multi_obj_runtime_threshold, # add for multi_obj_thr
+      factor_alpha=FLAGS.multi_obj_factor_alpha, # add for alpha
+      factor_beta=FLAGS.multi_obj_factor_beta, # add for beta
       stack_convs=FLAGS.child_stack_convs # add for stack_convs
     )
 

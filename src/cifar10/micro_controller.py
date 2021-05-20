@@ -44,6 +44,8 @@ class MicroController(Controller):
                num_replicas=None,
                multi_objective=None,
                runtime_threshold=100000,
+               factor_alpha=0.0,
+               factor_beta=-1.0,
                stack_convs=2,
                name="controller",
                **kwargs):
@@ -80,6 +82,8 @@ class MicroController(Controller):
     self.num_replicas = num_replicas
     self.multi_objective = multi_objective
     self.runtime_threshold = runtime_threshold
+    self.factor_alpha = factor_alpha
+    self.factor_beta = factor_beta
     self.stack_convs = stack_convs
     self.name = name
 
@@ -318,8 +322,8 @@ class MicroController(Controller):
     self.cpu_latency_sum = cpu_latency_sum
     self.gpu_latency_sum = gpu_latency_sum
 
-    alpha = tf.cast(0. , tf.float32)
-    beta = tf.cast(-1. , tf.float32)
+    alpha = tf.cast(self.factor_alpha , tf.float32)
+    beta = tf.cast(self.factor_beta , tf.float32)
 
     #multi_objective = [cpu, gpu, None]
     if self.multi_objective == "cpu":

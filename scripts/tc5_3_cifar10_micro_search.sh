@@ -1,10 +1,12 @@
 #!/bin/bash
-# name : tc5_2_cifar10_micro_search.sh
+# name : tc5_3_cifar10_micro_search.sh
 # description : 
 # copy cifar10_micro_search.sh
 # build to compare with actual fixed_arc on cifar10_micro_final.sh
 # controller_multi_objective set "cpu"
-# multi_obj_runtime_threshold set 25000 (50000us)
+# multi_obj_runtime_threshold set 50000 (100000us)
+# multi_obj_factor_alpha set -0.07
+# multi_obj_factor_beta set -0.07
 
 export PYTHONPATH="$(pwd)"
 
@@ -13,7 +15,7 @@ CUDA_VISIBLE_DEVICES=7 python src/cifar10/main.py \
   --search_for="micro" \
   --reset_output_dir \
   --data_path="data/cifar-10-batches-py" \
-  --output_dir="outputs_tc5_2_cifar10_micro_search" \
+  --output_dir="outputs_tc5_3_cifar10_micro_search" \
   --batch_size=160 \
   --num_epochs=150 \
   --log_every=50 \
@@ -42,6 +44,8 @@ CUDA_VISIBLE_DEVICES=7 python src/cifar10/main.py \
   --controller_tanh_constant=1.10 \
   --controller_op_tanh_reduce=2.5 \
   --controller_multi_objective="cpu" \
-  --multi_obj_runtime_threshold=25000 \
+  --multi_obj_runtime_threshold=50000 \
+  --multi_obj_factor_alpha=-0.07 \
+  --multi_obj_factor_beta=-0.07 \
   "$@"
 
