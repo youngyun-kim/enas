@@ -205,6 +205,7 @@ def get_ops(images, labels):
       "skip_rate": controller_model.skip_rate,
       "cpu_latency_sum": controller_model.cpu_latency_sum,
       "gpu_latency_sum": controller_model.gpu_latency_sum,
+      "current_threshold": controller_model.current_threshold,
       "reward": controller_model.reward,
     }
   else:
@@ -330,11 +331,12 @@ def train():
 
               print("Here are 10 architectures")
               for _ in range(10):
-                arc, acc, cpu_lat, gpu_lat, red = sess.run([
+                arc, acc, cpu_lat, gpu_lat, cur_thr, red = sess.run([
                   controller_ops["sample_arc"],
                   controller_ops["valid_acc"],
                   controller_ops["cpu_latency_sum"],
                   controller_ops["gpu_latency_sum"],
+                  controller_ops["current_threshold"],
                   controller_ops["reward"]
                 ])
                 if FLAGS.search_for == "micro":
@@ -353,6 +355,7 @@ def train():
                 print("val_acc={:<6.4f}".format(acc))
                 print("cpu_latency_sum={:<6.4f}".format(cpu_lat))
                 print("gpu_latency_sum={:<6.4f}".format(gpu_lat))
+                print("current_threshold={:<6.4f}".format(cur_thr))
                 print("reward={:<6.4f}".format(red))
                 print("-" * 80)
 
