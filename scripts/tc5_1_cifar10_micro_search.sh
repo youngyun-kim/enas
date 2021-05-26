@@ -4,11 +4,11 @@
 # copy cifar10_micro_search.sh
 # build to compare with actual fixed_arc on cifar10_micro_final.sh
 # controller_multi_objective set "cpu"
-# multi_obj_runtime_threshold set 50000 (100000us)
+# multi_obj_runtime_threshold set 47000 (100000us * 8/17)
 
 export PYTHONPATH="$(pwd)"
 
-CUDA_VISIBLE_DEVICES=6 python src/cifar10/main.py \
+CUDA_VISIBLE_DEVICES=4 python src/cifar10/main.py \
   --data_format="NHWC" \
   --search_for="micro" \
   --reset_output_dir \
@@ -42,6 +42,6 @@ CUDA_VISIBLE_DEVICES=6 python src/cifar10/main.py \
   --controller_tanh_constant=1.10 \
   --controller_op_tanh_reduce=2.5 \
   --controller_multi_objective="cpu" \
-  --multi_obj_runtime_threshold=50000 \
+  --multi_obj_runtime_threshold=47000 \
   "$@"
 

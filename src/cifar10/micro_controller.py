@@ -331,8 +331,8 @@ class MicroController(Controller):
         latency_sum = cpu_latency_sum #CPU
         latency_val = tf.cond(
                 tf.math.greater(threshold, latency_sum),
-                lambda: tf.math.pow(latency_sum, alpha),
-                lambda: tf.math.pow(latency_sum, beta)
+                lambda: tf.math.pow(latency_sum/threshold, alpha),
+                lambda: tf.math.pow(latency_sum/threshold, beta)
         )
         self.reward = self.valid_acc * latency_val # objective function
     elif self.multi_objective == "gpu":
@@ -340,8 +340,8 @@ class MicroController(Controller):
         latency_sum = gpu_latency_sum #GPU
         latency_val = tf.cond(
                 tf.math.greater(threshold, latency_sum),
-                lambda: tf.math.pow(latency_sum, alpha),
-                lambda: tf.math.pow(latency_sum, beta)
+                lambda: tf.math.pow(latency_sum/threshold, alpha),
+                lambda: tf.math.pow(latency_sum/threshold, beta)
         )
         self.reward = self.valid_acc * latency_val # objective function
     else:

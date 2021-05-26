@@ -4,15 +4,15 @@
 # copy cifar10_micro_final.sh
 # num_epochs changes from 630 to 150
 # stack_conv=2 (not changed)
-# training controller : num_epochs=150/150 
-# val_acc=0.6438, cpu_latency_sum=46511.5156, gpu_latency_sum=5900.1118, reward=0.3086
+# training controller : num_epochs=149/150
+# val_acc=0.6438, cpu_latency_sum=41719.7422, gpu_latency_sum=5116.8960, reward=0.3109
 
 export PYTHONPATH="$(pwd)"
 
-fixed_arc="0 4 0 1 1 4 1 4 1 2 0 0 1 4 0 2 0 2 0 1"
-fixed_arc="$fixed_arc 0 2 0 2 0 0 2 1 0 4 3 1 1 1 2 4 0 2 0 1"
+fixed_arc="0 3 1 4 1 1 1 4 0 0 1 2 4 1 0 4 0 4 1 2"
+fixed_arc="$fixed_arc 1 2 1 2 0 1 1 1 1 2 0 3 1 2 0 4 1 0 1 2"
 
-CUDA_VISIBLE_DEVICES=6 python src/cifar10/main.py \
+CUDA_VISIBLE_DEVICES=7 python src/cifar10/main.py \
   --data_format="NHWC" \
   --search_for="micro" \
   --reset_output_dir \
