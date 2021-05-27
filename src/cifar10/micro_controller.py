@@ -60,7 +60,7 @@ class MicroController(Controller):
     self.num_branches = num_branches
 
     self.lstm_size = lstm_size
-    self.lstm_num_layers = lstm_num_layers
+    self.lstm_num_layers = lstm_num_layers 
     self.lstm_keep_prob = lstm_keep_prob
     self.tanh_constant = tanh_constant
     self.op_tanh_reduce = op_tanh_reduce
@@ -85,7 +85,6 @@ class MicroController(Controller):
     self.factor_alpha = factor_alpha
     self.factor_beta = factor_beta
     self.stack_convs = stack_convs
-    self.current_threshold = -1
     self.name = name
 
     self._create_params()
@@ -230,7 +229,7 @@ class MicroController(Controller):
       tf.constant([0.0], dtype=tf.float32, name="entropy"),
       tf.constant([0.0], dtype=tf.float32, name="log_prob"),
     ]
-
+    
     loop_outputs = tf.while_loop(_condition, _body, loop_vars,
                                  parallel_iterations=1)
 
@@ -328,14 +327,7 @@ class MicroController(Controller):
 
     #multi_objective = [cpu, gpu, None]
     if self.multi_objective == "cpu":
-        # threshold = tf.cast(self.runtime_threshold , tf.float32) # 100000us
-        threshold = tf.cast(self.current_threshold , tf.float32) # 100000us
-        if threshold > cpu_latency_sum:
-            threshold = cpu_latency_sum - 1
-        if threshold < 0:
-            threshold = cpu_latency_sum - 1
-        self.current_threshold = threshold
-
+        threshold = tf.cast(self.runtime_threshold , tf.float32) # 100000us
         latency_sum = cpu_latency_sum #CPU
         latency_val = tf.cond(
                 tf.math.greater(threshold, latency_sum),
